@@ -188,3 +188,4 @@ if 'ultima_atualizacao' in st.session_state:
     
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
+
