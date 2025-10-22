@@ -111,8 +111,9 @@ def nao_click(linha, row):
 def atualizar_porta(creds, linha, porta):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
-        data_atual = datetime.now().strftime("%d/%m/%Y")
-        body = {"values": [["SIM", f"SIM, {data_atual}"]]}  # Colunas I e K
+        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        # Inserindo "" para coluna J
+        body = {"values": [["SIM", "", f"SIM, {data_atual}"]]}  # I, J, K
         service.values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=f"CAIXAS!I{linha}:K{linha}",
@@ -178,11 +179,12 @@ if 'portas' in st.session_state:
             with col2:
                 st.button("SIM", key=f"sim_{linha}", on_click=sim_click, args=(creds, linha, row[4]), use_container_width=True)
                 st.button("NÃO", key=f"nao_{linha}", on_click=nao_click, args=(linha,row), use_container_width=True)
-                st.markdown("<hr>", unsafe_allow_html=True)
+            
+            # Linha de divisão horizontal
+            st.markdown("<hr>", unsafe_allow_html=True)
 
 # Mensagem de atualização
 if 'ultima_atualizacao' in st.session_state:
+    
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
-
-
