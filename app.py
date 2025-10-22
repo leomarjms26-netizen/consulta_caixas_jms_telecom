@@ -1,5 +1,4 @@
 import streamlit as st
-import pandas as pd
 from datetime import datetime
 import os.path
 from google.auth.transport.requests import Request
@@ -14,74 +13,6 @@ SPREADSHEET_ID = "1PLSVD3VxmgfWKOyr3Z700TbxCIZr1sT8IlOiSIvDvxM"
 RANGE = "CAIXAS!A2:K6009"
 BACKGROUND_URL = "https://raw.githubusercontent.com/leomarjms26-netizen/app.py/refs/heads/main/Copilot_20251016_121602.png"
 
-# --- CSS ---
-st.markdown(f"""
-<style>
-h1, h2, h3, h4, h5, h6, p, label, span, div {{
-    color: #f8f9fa !important;
-}}
-
-/* Fundo do app */
-html, body, [class*="stAppViewContainer"], [class*="stApp"], [data-testid="stAppViewContainer"] {{
-    background: linear-gradient(rgba(0, 32, 46,0.75), rgba(0, 32, 46,0.75)),
-                url('{BACKGROUND_URL}') !important;
-    background-size: cover !important;
-    background-position: center center !important;
-    background-attachment: fixed !important;
-}}
-
-.stColumn > div {{
-    white-space: nowrap;
-    width: auto !important;
-    overflow-x: visible !important;
-    text-align: center; /* centraliza o conteúdo das colunas */
-}}
-
-/* Botões SIM e NÃO */
-button.sim {{
-    background-color: rgb(32, 201, 58) !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 6px;
-    padding: 4px 12px;
-    cursor: pointer;
-}}
-button.sim:hover {{
-    background-color: rgb(20, 160, 45) !important;
-}}
-button.nao {{
-    background-color: rgb(200, 32, 32) !important;
-    color: #ffffff !important;
-    border: none !important;
-    border-radius: 6px;
-    padding: 4px 12px;
-    cursor: pointer;
-}}
-button.nao:hover {{
-    background-color: rgb(160, 20, 20) !important;
-}}
-
-/* Botões principais e de download */
-button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
-    background-color: rgb(32, 201, 58) !important;
-    color: #ffffff !important;
-    border: none !important;
-}}
-button[kind="primary"]:hover, .stDownloadButton > button:hover, div.stButton > button:hover {{
-    background-color: rgb(20, 160, 45) !important;
-}}
-
-/* CENTRALIZAÇÃO DA TABELA */
-.fundo-tabela {{
-    display: flex;
-    justify-content: center;  /* Centraliza horizontalmente */
-    flex-direction: column;   /* Mantém a direção da tabela */
-    align-items: center;      /* Centraliza conteúdo dentro da div */
-    width: 100%;
-}}
-</style>
-""", unsafe_allow_html=True)
-
 st.markdown(
     """
     <link rel="apple-touch-icon" sizes="180x180" href="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png">
@@ -91,6 +22,44 @@ st.markdown(
     """,
     unsafe_allow_html=True
 )
+
+# --- CSS para Mobile ---
+st.markdown(f"""
+<style>
+html, body, [class*="stAppViewContainer"], [class*="stApp"], [data-testid="stAppViewContainer"] {{
+    background: linear-gradient(rgba(0, 32, 46,0.75), rgba(0, 32, 46,0.75)),
+                url('{BACKGROUND_URL}') !important;
+    background-size: cover !important;
+    background-position: center center !important;
+    background-attachment: fixed !important;
+}}
+h1, h2, h3, h4, h5, h6, p, label, span, div {{
+    color: #f8f9fa !important;
+    text-align: center;
+}}
+.div-campo {{
+    margin-bottom: 20px;
+}}
+.label {{
+    font-weight: bold;
+    font-size: 16px;
+}}
+.valor {{
+    font-size: 18px;
+    margin-top: 6px;
+}}
+.stButton > button {{
+    border-radius: 6px;
+    padding: 6px 16px;
+}}
+/* Botões principais e de download */
+button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
+    background-color: rgb(32, 201, 58) !important;
+    color: #ffffff !important;
+    border: none !important;
+}}
+</style>
+""", unsafe_allow_html=True)
 
 # --- Funções Google Sheets ---
 def autenticar_google():
@@ -128,36 +97,44 @@ def buscar_portas(creds, identificador):
         st.error(f"Erro ao buscar dados: {err}")
         return []
 
+# --- Funções para atualização de portas ---
+def sim_click(creds, linha, porta):
+    atualizar_porta(creds, linha, porta)
+    # Remove porta da lista local
+    if 'portas' in st.session_state:
+        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
+
+def nao_click(linha, row):
+    if 'portas' in st.session_state:
+        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
+
 def atualizar_porta(creds, linha, porta):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
         data_atual = datetime.now().strftime("%d/%m/%Y")
-        body = {"values": [["SIM", f"SIM, {data_atual}"]]}  # Colunas I = OCUPADA, K = ADICIONOU_CLIENTE
+        body = {"values": [["SIM", f"SIM, {data_atual}"]]}  # Colunas I e K
         service.values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=f"CAIXAS!I{linha}:K{linha}",
             valueInputOption="USER_ENTERED",
             body=body
         ).execute()
-        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
         st.session_state['ultima_atualizacao'] = f"✅ Porta {porta} atualizada com sucesso!"
     except HttpError as err:
         st.error(f"❌ Erro ao atualizar a porta {porta} (linha {linha}): {err}")
 
 # --- Streamlit ---
-st.set_page_config(
-    page_title="Verificador de Portas",
-    page_icon="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png"
-)
+st.set_page_config(page_title="Verificador de Portas", layout="centered")
+st.title("Verificador de Portas")
 
-st.title("Verificador de Portas Disponíveis")
-
-entrada = st.text_input("Digite o identificador (ex: CB07-SP06-CX15)").upper()
-buscar = st.button("🔍 Buscar")
-
+# Autenticação
 if 'creds' not in st.session_state:
     st.session_state['creds'] = autenticar_google()
 creds = st.session_state['creds']
+
+# Entrada e busca
+entrada = st.text_input("Digite o identificador (ex: CB07-SP06-CX15)").upper()
+buscar = st.button("🔍 Buscar")
 
 if buscar and entrada:
     st.session_state['portas'] = buscar_portas(creds, entrada)
@@ -177,38 +154,29 @@ if 'portas' in st.session_state:
         )
     else:
         st.success(f"🟢 Portas Disponíveis para: {entrada}")
-
-        st.markdown('<div class="fundo-tabela">', unsafe_allow_html=True)
-
-        # Cabeçalho (sem coluna Linha)
-        col_cabo, col_prim, col_caixa, col_porta, col_cap, col_interface, col_adicionou = st.columns([2,2,2,1,2,2,3])
-        col_cabo.markdown("**CABO**")
-        col_prim.markdown("**PRIMARIA**")
-        col_caixa.markdown("**CAIXA**")
-        col_porta.markdown("**PORTA**")
-        col_cap.markdown("**CAPACIDADE**")
-        col_interface.markdown("**INTERFACE**")
-        col_adicionou.markdown("**ADICIONOU CLIENTE?**")
-
-        # Linhas de dados (ajustando índices do row)
         for linha, row in portas:
-            cols = st.columns([2,2,2,1,2,2,3])
-            cols[0].markdown(row[0])
-            cols[1].markdown(row[1])
-            cols[2].markdown(row[2])
-            cols[3].markdown(row[4])
-            cols[4].markdown(row[5])
-            cols[5].markdown(row[6])
-            with cols[6]:
-                btn1, btn2 = st.columns(2)
-                with btn1:
-                    st.button("SIM", key=f"sim_{linha}", on_click=atualizar_porta, args=(creds, linha, row[4]))
-                with btn2:
-                    st.button("NÃO", key=f"nao_{linha}", on_click=lambda l=linha, r=row: st.session_state['portas'].remove((l,r)) or st.experimental_rerun())
+            # Campos verticais
+            for label, valor in [("CABO", row[0]),
+                                 ("PRIMARIA", row[1]),
+                                 ("CAIXA", row[2]),
+                                 ("PORTA", row[4]),
+                                 ("CAPACIDADE", row[5]),
+                                 ("INTERFACE", row[6])]:
+                st.markdown(f"""
+                <div class="div-campo">
+                    <div class="label">{label}</div>
+                    <div class="valor">{valor}</div>
+                </div>
+                """, unsafe_allow_html=True)
 
-        st.markdown('</div>', unsafe_allow_html=True)
+            # Botões centralizados
+            st.markdown('<div class="label">ADICIONOU CLIENTE?</div>', unsafe_allow_html=True)
+            col1, col2, col3 = st.columns([1,2,1])
+            with col2:
+                st.button("SIM", key=f"sim_{linha}", on_click=sim_click, args=(creds, linha, row[4]), use_container_width=True)
+                st.button("NÃO", key=f"nao_{linha}", on_click=nao_click, args=(linha,row), use_container_width=True)
 
-        # Mensagem de atualização abaixo da tabela
-        if 'ultima_atualizacao' in st.session_state:
-            st.success(st.session_state['ultima_atualizacao'])
-            del st.session_state['ultima_atualizacao']
+# Mensagem de atualização
+if 'ultima_atualizacao' in st.session_state:
+    st.success(st.session_state['ultima_atualizacao'])
+    del st.session_state['ultima_atualizacao']
