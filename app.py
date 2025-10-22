@@ -124,7 +124,10 @@ def atualizar_porta(creds, linha, porta):
         st.error(f"❌ Erro ao atualizar a porta {porta} (linha {linha}): {err}")
 
 # --- Streamlit ---
-st.set_page_config(page_title="Verificador de Portas", layout="centered")
+st.set_page_config(
+    page_title="Verificador de Portas", layout="centered",
+    page_icon="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png"
+    )
 st.title("Verificador de Portas")
 
 # Autenticação
@@ -181,4 +184,5 @@ if 'portas' in st.session_state:
 if 'ultima_atualizacao' in st.session_state:
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
+
 
