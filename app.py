@@ -175,8 +175,10 @@ if 'portas' in st.session_state:
             with col2:
                 st.button("SIM", key=f"sim_{linha}", on_click=sim_click, args=(creds, linha, row[4]), use_container_width=True)
                 st.button("NÃO", key=f"nao_{linha}", on_click=nao_click, args=(linha,row), use_container_width=True)
+                st.markdown("<hr>", unsafe_allow_html=True)
 
 # Mensagem de atualização
 if 'ultima_atualizacao' in st.session_state:
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
+
