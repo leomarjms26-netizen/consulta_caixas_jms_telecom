@@ -15,7 +15,7 @@ SPREADSHEET_ID = "1PLSVD3VxmgfWKOyr3Z700TbxCIZr1sT8IlOiSIvDvxM"
 RANGE = "CAIXAS!A2:K6009"
 BACKGROUND_URL = "https://raw.githubusercontent.com/leomarjms26-netizen/app.py/refs/heads/main/Copilot_20251016_121602.png"
 TOKEN = "8241284074:AAHv3FDj0I86Nu-IsCXPsE1XqT3LPr8ErVY"
-CHAT_ID = "-4809646408"
+CHAT_ID = "-1003127706915"
 
 st.markdown(
     """
@@ -205,3 +205,4 @@ if 'ultima_atualizacao' in st.session_state:
     
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
+
