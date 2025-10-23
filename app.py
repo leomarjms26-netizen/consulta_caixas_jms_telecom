@@ -1,12 +1,13 @@
 import streamlit as st
 import requests
-from datetime import datetime
 import os.path
+import pytz
 from google.auth.transport.requests import Request
 from google.oauth2.credentials import Credentials
 from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
+from datetime import datetime
 
 # Configurações
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
@@ -66,7 +67,8 @@ button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
 
 # FUNÇÃO DE ENVIO TELEGRAM
 def enviar_mensagem_telegram(entrada, porta):
-    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    fuso_brasilia = pytz.timezone("America/Sao_Paulo")
+    data_hora = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
     mensagem = f"Cliente adicionado à caixa <b>{entrada}</b> na porta <b>{porta}</b> em {data_hora}."
     url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
     payload = {"chat_id": CHAT_ID, "text": mensagem, "parse_mode": "HTML"}
@@ -131,7 +133,8 @@ def nao_click(linha, row):
 def atualizar_porta(creds, linha, porta):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
-        data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+        fuso_brasilia = pytz.timezone("America/Sao_Paulo")
+        data_atual = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
         
         body = {"values": [["SIM", "", f"SIM, {data_atual}"]]}  # I, J, K
         service.values().update(
