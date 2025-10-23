@@ -1,4 +1,5 @@
 import streamlit as st
+import requests
 from datetime import datetime
 import os.path
 from google.auth.transport.requests import Request
@@ -7,11 +8,13 @@ from google_auth_oauthlib.flow import InstalledAppFlow
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 
-# --- Configurações ---
+# Configurações
 SCOPES = ["https://www.googleapis.com/auth/spreadsheets"]
 SPREADSHEET_ID = "1PLSVD3VxmgfWKOyr3Z700TbxCIZr1sT8IlOiSIvDvxM"
 RANGE = "CAIXAS!A2:K6009"
 BACKGROUND_URL = "https://raw.githubusercontent.com/leomarjms26-netizen/app.py/refs/heads/main/Copilot_20251016_121602.png"
+TOKEN = "8241284074:AAHv3FDj0I86Nu-IsCXPsE1XqT3LPr8ErVY"
+CHAT_ID = "-4809646408"
 
 st.markdown(
     """
@@ -23,7 +26,7 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# --- CSS para Mobile ---
+# CSS
 st.markdown(f"""
 <style>
 html, body, [class*="stAppViewContainer"], [class*="stApp"], [data-testid="stAppViewContainer"] {{
@@ -61,7 +64,23 @@ button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
 </style>
 """, unsafe_allow_html=True)
 
-# --- Funções Google Sheets ---
+# FUNÇÃO DE ENVIO TELEGRAM
+def enviar_mensagem_telegram(entrada, porta):
+    data_hora = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+    mensagem = f"Cliente adicionado à caixa <b>{entrada}</b> na porta <b>{porta}</b> em {data_hora}."
+    url = f"https://api.telegram.org/bot{TOKEN}/sendMessage"
+    payload = {"chat_id": CHAT_ID, "text": mensagem, "parse_mode": "HTML"}
+
+    try:
+        resposta = requests.post(url, data=payload)
+        if resposta.status_code != 200:
+            st.warning(f"⚠️ Erro ao enviar mensagem ao Telegram: {resposta.text}")
+        else:
+            st.toast("📨 Notificação enviada ao grupo do Telegram!")
+    except Exception as e:
+        st.warning(f"⚠️ Falha ao enviar notificação: {e}")
+
+# Funções Google Sheets
 def autenticar_google():
     creds = None
     if os.path.exists("token.json"):
@@ -97,10 +116,11 @@ def buscar_portas(creds, identificador):
         st.error(f"Erro ao buscar dados: {err}")
         return []
 
-# --- Funções para atualização de portas ---
+# Funções para atualização de portas
 def sim_click(creds, linha, porta):
     atualizar_porta(creds, linha, porta)
-    # Remove porta da lista local
+    enviar_mensagem_telegram(entrada, porta)
+
     if 'portas' in st.session_state:
         st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
 
@@ -112,7 +132,7 @@ def atualizar_porta(creds, linha, porta):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
         data_atual = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-        # Inserindo "" para coluna J
+        
         body = {"values": [["SIM", "", f"SIM, {data_atual}"]]}  # I, J, K
         service.values().update(
             spreadsheetId=SPREADSHEET_ID,
@@ -124,19 +144,18 @@ def atualizar_porta(creds, linha, porta):
     except HttpError as err:
         st.error(f"❌ Erro ao atualizar a porta {porta} (linha {linha}): {err}")
 
-# --- Streamlit ---
+# Streamlit
 st.set_page_config(
     page_title="Verificador de Portas", layout="centered",
     page_icon="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png"
     )
 st.title("Verificador de Portas")
 
-# Autenticação
+
 if 'creds' not in st.session_state:
     st.session_state['creds'] = autenticar_google()
 creds = st.session_state['creds']
 
-# Entrada e busca
 entrada = st.text_input("Digite o identificador (ex: CB07-SP06-CX15)").upper()
 buscar = st.button("🔍 Buscar")
 
@@ -159,7 +178,6 @@ if 'portas' in st.session_state:
     else:
         st.success(f"🟢 Portas Disponíveis para: {entrada}")
         for linha, row in portas:
-            # Campos verticais
             for label, valor in [("CABO", row[0]),
                                  ("PRIMARIA", row[1]),
                                  ("CAIXA", row[2]),
@@ -173,19 +191,14 @@ if 'portas' in st.session_state:
                 </div>
                 """, unsafe_allow_html=True)
 
-            # Botões centralizados
             st.markdown('<div class="label">ADICIONOU CLIENTE?</div>', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1,2,1])
             with col2:
                 st.button("SIM", key=f"sim_{linha}", on_click=sim_click, args=(creds, linha, row[4]), use_container_width=True)
                 st.button("NÃO", key=f"nao_{linha}", on_click=nao_click, args=(linha,row), use_container_width=True)
-            
-            # Linha de divisão horizontal
-            st.markdown("<hr>", unsafe_allow_html=True)
+                st.markdown("<hr>", unsafe_allow_html=True)
 
-# Mensagem de atualização
 if 'ultima_atualizacao' in st.session_state:
     
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
-
