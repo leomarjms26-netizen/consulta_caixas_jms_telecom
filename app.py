@@ -1,10 +1,9 @@
 import streamlit as st
 import requests
-import os.path
+import os
+import json
 import pytz
-from google.auth.transport.requests import Request
-from google.oauth2.credentials import Credentials
-from google_auth_oauthlib.flow import InstalledAppFlow
+from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.errors import HttpError
 from datetime import datetime
@@ -17,6 +16,7 @@ BACKGROUND_URL = "https://raw.githubusercontent.com/leomarjms26-netizen/consulta
 TOKEN = "8241284074:AAHv3FDj0I86Nu-IsCXPsE1XqT3LPr8ErVY"
 CHAT_ID = "-1003127706915"
 
+# ESTILO E ÍCONES 
 st.markdown(
     """
     <link rel="apple-touch-icon" sizes="180x180" href="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png">
@@ -27,7 +27,6 @@ st.markdown(
     unsafe_allow_html=True
 )
 
-# CSS
 st.markdown(f"""
 <style>
 html, body, [class*="stAppViewContainer"], [class*="stApp"], [data-testid="stAppViewContainer"] {{
@@ -56,7 +55,6 @@ h1, h2, h3, h4, h5, h6, p, label, span, div {{
     border-radius: 6px;
     padding: 6px 16px;
 }}
-/* Botões principais e de download */
 button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
     background-color: rgb(32, 201, 58) !important;
     color: #ffffff !important;
@@ -65,7 +63,7 @@ button[kind="primary"], .stDownloadButton > button, div.stButton > button {{
 </style>
 """, unsafe_allow_html=True)
 
-# FUNÇÃO DE ENVIO TELEGRAM
+# FUNÇÃO DE ENVIO TELEGRAM 
 def enviar_mensagem_telegram(entrada, porta):
     fuso_brasilia = pytz.timezone("America/Sao_Paulo")
     data_hora = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
@@ -82,23 +80,28 @@ def enviar_mensagem_telegram(entrada, porta):
     except Exception as e:
         st.warning(f"⚠️ Falha ao enviar notificação: {e}")
 
-# Funções Google Sheets
+# AUTENTICAÇÃO COM CONTA DE SERVIÇO 
 def autenticar_google():
-    creds = None
-    if os.path.exists("token.json"):
-        creds = Credentials.from_authorized_user_file("token.json", SCOPES)
-    if not creds or not creds.valid:
-        if creds and creds.expired and creds.refresh_token:
-            creds.refresh(Request())
-        else:
-            flow = InstalledAppFlow.from_client_secrets_file(
-                "integracaogooglesheet.json", SCOPES
-            )
-            creds = flow.run_local_server(port=0)
-        with open("token.json", "w") as token:
-            token.write(creds.to_json())
-    return creds
+    try:
+        # Lê o segredo salvo no painel do Streamlit Cloud
+        service_info = st.secrets["INTEGRACAOGOOGLESHEET"]
 
+        # Converte se estiver como string (por segurança)
+        if isinstance(service_info, str):
+            service_info = json.loads(service_info)
+
+        # Cria credenciais de conta de serviço
+        creds = service_account.Credentials.from_service_account_info(
+            service_info, scopes=SCOPES
+        )
+
+        return creds
+
+    except Exception as e:
+        st.error(f"❌ Erro ao autenticar com Google Sheets: {e}")
+        st.stop()
+
+# BUSCAR PORTAS DISPONÍVEIS 
 def buscar_portas(creds, identificador):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
@@ -118,25 +121,13 @@ def buscar_portas(creds, identificador):
         st.error(f"Erro ao buscar dados: {err}")
         return []
 
-# Funções para atualização de portas
-def sim_click(creds, linha, porta):
-    atualizar_porta(creds, linha, porta)
-    enviar_mensagem_telegram(entrada, porta)
-
-    if 'portas' in st.session_state:
-        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
-
-def nao_click(linha, row):
-    if 'portas' in st.session_state:
-        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
-
+# ATUALIZAR PORTA 
 def atualizar_porta(creds, linha, porta):
     try:
         service = build("sheets", "v4", credentials=creds).spreadsheets()
         fuso_brasilia = pytz.timezone("America/Sao_Paulo")
         data_atual = datetime.now(fuso_brasilia).strftime("%d/%m/%Y %H:%M:%S")
-        
-        body = {"values": [["SIM", "", f"SIM, {data_atual}"]]}  # I, J, K
+        body = {"values": [["SIM", "", f"SIM, {data_atual}"]]}  # Colunas I, J, K
         service.values().update(
             spreadsheetId=SPREADSHEET_ID,
             range=f"CAIXAS!I{linha}:K{linha}",
@@ -147,13 +138,25 @@ def atualizar_porta(creds, linha, porta):
     except HttpError as err:
         st.error(f"❌ Erro ao atualizar a porta {porta} (linha {linha}): {err}")
 
-# Streamlit
-st.set_page_config(
-    page_title="Verificador de Portas", layout="centered",
-    page_icon="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png"
-    )
-st.title("Verificador de Portas")
+# CALLBACKS DE BOTÕES 
+def sim_click(creds, linha, porta):
+    atualizar_porta(creds, linha, porta)
+    enviar_mensagem_telegram(entrada, porta)
+    if 'portas' in st.session_state:
+        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
 
+def nao_click(linha, row):
+    if 'portas' in st.session_state:
+        st.session_state['portas'] = [p for p in st.session_state['portas'] if p[0] != linha]
+
+# INTERFACE STREAMLIT 
+st.set_page_config(
+    page_title="Verificador de Portas",
+    layout="centered",
+    page_icon="c64a4e55-0ce2-40c5-9392-fdc6f50f8b1aPNG.png"
+)
+
+st.title("Verificador de Portas")
 
 if 'creds' not in st.session_state:
     st.session_state['creds'] = autenticar_google()
@@ -167,8 +170,7 @@ if buscar and entrada:
 
 if 'portas' in st.session_state:
     portas = st.session_state['portas']
-
-    if not portas or len(portas) == 0:
+    if not portas:
         st.error(
             f"❌ Nenhuma Porta disponível encontrada para: \n{entrada}  \n"
             f"📞 Ligue para o TI para Atualizar a Caixa: (11) 94484-7040 ou Clique no Ícone do Whatsapp para ser redirecionado"
@@ -181,19 +183,20 @@ if 'portas' in st.session_state:
     else:
         st.success(f"🟢 Portas Disponíveis para: {entrada}")
         for linha, row in portas:
-            for label, valor in [("CABO", row[0]),
-                                 ("PRIMARIA", row[1]),
-                                 ("CAIXA", row[2]),
-                                 ("PORTA", row[4]),
-                                 ("CAPACIDADE", row[5]),
-                                 ("INTERFACE", row[6])]:
+            for label, valor in [
+                ("CABO", row[0]),
+                ("PRIMARIA", row[1]),
+                ("CAIXA", row[2]),
+                ("PORTA", row[4]),
+                ("CAPACIDADE", row[5]),
+                ("INTERFACE", row[6])
+            ]:
                 st.markdown(f"""
                 <div class="div-campo">
                     <div class="label">{label}</div>
                     <div class="valor">{valor}</div>
                 </div>
                 """, unsafe_allow_html=True)
-
             st.markdown('<div class="label">ADICIONOU CLIENTE?</div>', unsafe_allow_html=True)
             col1, col2, col3 = st.columns([1,2,1])
             with col2:
@@ -202,8 +205,5 @@ if 'portas' in st.session_state:
                 st.markdown("<hr>", unsafe_allow_html=True)
 
 if 'ultima_atualizacao' in st.session_state:
-    
     st.success(st.session_state['ultima_atualizacao'])
     del st.session_state['ultima_atualizacao']
-
-
